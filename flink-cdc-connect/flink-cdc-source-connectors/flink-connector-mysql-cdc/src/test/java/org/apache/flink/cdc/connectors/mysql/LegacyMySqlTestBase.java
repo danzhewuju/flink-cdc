@@ -17,7 +17,9 @@
 
 package org.apache.flink.cdc.connectors.mysql;
 
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
+import org.apache.flink.cdc.connectors.mysql.testutils.RemoteMySqlServer;
 import org.apache.flink.test.util.AbstractTestBase;
 
 import org.junit.jupiter.api.AfterAll;
@@ -37,27 +39,39 @@ public abstract class LegacyMySqlTestBase extends AbstractTestBase {
 
     private static final Logger LOG = LoggerFactory.getLogger(LegacyMySqlTestBase.class);
 
-    protected static final MySqlContainer MYSQL_CONTAINER =
-            (MySqlContainer)
-                    new MySqlContainer()
-                            .withConfigurationOverride("docker/server/my.cnf")
-                            .withSetupSQL("docker/setup.sql")
-                            .withDatabaseName("flink-test")
-                            .withUsername("flinkuser")
-                            .withPassword("flinkpw")
-                            .withLogConsumer(new Slf4jLogConsumer(LOG));
+    protected static final MySqlConnectionProvider MYSQL_CONTAINER = createMySqlProvider();
+
+    private static MySqlConnectionProvider createMySqlProvider() {
+        if (RemoteMySqlServer.isRemoteEnabled()) {
+            return new RemoteMySqlServer();
+        }
+        return (MySqlContainer)
+                new MySqlContainer()
+                        .withConfigurationOverride("docker/server/my.cnf")
+                        .withSetupSQL("docker/setup.sql")
+                        .withDatabaseName("flink-test")
+                        .withUsername("flinkuser")
+                        .withPassword("flinkpw")
+                        .withLogConsumer(new Slf4jLogConsumer(LOG));
+    }
 
     @BeforeAll
     static void startContainers() {
-        LOG.info("Starting containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Containers are started.");
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Starting containers...");
+            Startables.deepStart(Stream.of((MySqlContainer) MYSQL_CONTAINER)).join();
+            LOG.info("Containers are started.");
+        } else {
+            LOG.info("Using remote MySQL server at {}:{}", MYSQL_CONTAINER.getHost(), MYSQL_CONTAINER.getDatabasePort());
+        }
     }
 
     @AfterAll
     static void stopContainers() {
-        LOG.info("Stopping containers...");
-        MYSQL_CONTAINER.stop();
-        LOG.info("Containers are stopped.");
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Stopping containers...");
+            MYSQL_CONTAINER.stop();
+            LOG.info("Containers are stopped.");
+        }
     }
 }

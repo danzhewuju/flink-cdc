@@ -18,8 +18,10 @@
 package org.apache.flink.cdc.connectors.mysql.source;
 
 import org.apache.flink.api.common.JobID;
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlVersion;
+import org.apache.flink.cdc.connectors.mysql.testutils.RemoteMySqlServer;
 import org.apache.flink.cdc.connectors.utils.ExternalResourceProxy;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.highavailability.nonha.embedded.EmbeddedHaServices;
@@ -53,10 +55,11 @@ public abstract class MySqlSourceTestBase extends TestLogger {
     protected static final Logger LOG = LoggerFactory.getLogger(MySqlSourceTestBase.class);
 
     protected static final int DEFAULT_PARALLELISM = 4;
-    protected static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V5_7);
+    protected static final MySqlConnectionProvider MYSQL_CONTAINER = createMySqlProvider(MySqlVersion.V8_0);
     protected InMemoryReporter metricReporter = InMemoryReporter.createWithRetainedMetrics();
     public static final String INTER_CONTAINER_MYSQL_ALIAS = "mysql";
-    public static final Network NETWORK = Network.newNetwork();
+    public static final Network NETWORK =
+            RemoteMySqlServer.isRemoteEnabled() ? null : Network.newNetwork();
 
     @RegisterExtension
     public final ExternalResourceProxy<MiniClusterWithClientResource> miniClusterResource =
@@ -73,18 +76,33 @@ public abstract class MySqlSourceTestBase extends TestLogger {
 
     @BeforeAll
     public static void startContainers() {
-        LOG.info("Starting containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Containers are started.");
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Starting containers...");
+            Startables.deepStart(Stream.of((MySqlContainer) MYSQL_CONTAINER)).join();
+            LOG.info("Containers are started.");
+        } else {
+            LOG.info("Using remote MySQL server at {}:{}", MYSQL_CONTAINER.getHost(), MYSQL_CONTAINER.getDatabasePort());
+        }
     }
 
     @AfterAll
     public static void stopContainers() {
-        LOG.info("Stopping containers...");
-        if (MYSQL_CONTAINER != null) {
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Stopping containers...");
             MYSQL_CONTAINER.stop();
+            LOG.info("Containers are stopped.");
         }
-        LOG.info("Containers are stopped.");
+    }
+
+    protected static MySqlConnectionProvider createMySqlProvider(MySqlVersion version) {
+        return createMySqlProvider(version, "docker/server-gtids/my.cnf");
+    }
+
+    protected static MySqlConnectionProvider createMySqlProvider(MySqlVersion version, String configPath) {
+        if (RemoteMySqlServer.isRemoteEnabled()) {
+            return new RemoteMySqlServer();
+        }
+        return createMySqlContainer(version, configPath);
     }
 
     protected static MySqlContainer createMySqlContainer(MySqlVersion version) {

@@ -30,7 +30,7 @@ import java.util.Set;
  * overriding mysql conf file, i.e. my.cnf.
  */
 @SuppressWarnings("rawtypes")
-public class MySqlContainer extends JdbcDatabaseContainer {
+public class MySqlContainer extends JdbcDatabaseContainer implements MySqlConnectionProvider {
 
     public static final String IMAGE = "mysql";
     public static final Integer MYSQL_PORT = 3306;
@@ -107,6 +107,12 @@ public class MySqlContainer extends JdbcDatabaseContainer {
         return getJdbcUrl(databaseName);
     }
 
+    @Override
+    public String getHost() {
+        return super.getHost();
+    }
+
+    @Override
     public int getDatabasePort() {
         return getMappedPort(MYSQL_PORT);
     }

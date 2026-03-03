@@ -58,7 +58,7 @@ public class MysqlGtidRecoveryTest extends MySqlSourceTestBase {
         BinaryLogClient client =
                 new BinaryLogClient(
                         MYSQL_CONTAINER.getHost(),
-                        MYSQL_CONTAINER.getMappedPort(3306),
+                        MYSQL_CONTAINER.getDatabasePort(),
                         SCHEMA,
                         USERNAME,
                         PASSWORD);

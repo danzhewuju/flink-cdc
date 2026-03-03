@@ -18,6 +18,7 @@
 package org.apache.flink.cdc.connectors.mysql.table;
 
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSourceTestBase;
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlVersion;
 import org.apache.flink.cdc.connectors.mysql.testutils.UniqueDatabase;
@@ -55,8 +56,8 @@ public class MySqlConnectorShardingTableITCase extends MySqlSourceTestBase {
     private static final String TEST_USER = "mysqluser";
     private static final String TEST_PASSWORD = "mysqlpw";
 
-    private static final MySqlContainer MYSQL8_CONTAINER =
-            createMySqlContainer(MySqlVersion.V8_0, "docker/server-gtids/expire-seconds/my.cnf");
+    private static final MySqlConnectionProvider MYSQL8_CONTAINER =
+            createMySqlProvider(MySqlVersion.V8_0, "docker/server-gtids/expire-seconds/my.cnf");
 
     private final UniqueDatabase fullTypesMySql57Database =
             new UniqueDatabase(MYSQL_CONTAINER, "column_type_test", TEST_USER, TEST_PASSWORD);
@@ -74,16 +75,20 @@ public class MySqlConnectorShardingTableITCase extends MySqlSourceTestBase {
 
     @BeforeAll
     public static void beforeClass() {
-        LOG.info("Starting MySql8 containers...");
-        Startables.deepStart(Stream.of(MYSQL8_CONTAINER)).join();
-        LOG.info("Container MySql8 is started.");
+        if (MYSQL8_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Starting MySql8 containers...");
+            Startables.deepStart(Stream.of((MySqlContainer) MYSQL8_CONTAINER)).join();
+            LOG.info("Container MySql8 is started.");
+        }
     }
 
     @AfterAll
     public static void afterClass() {
-        LOG.info("Stopping MySql8 containers...");
-        MYSQL8_CONTAINER.stop();
-        LOG.info("Container MySql8 is stopped.");
+        if (MYSQL8_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Stopping MySql8 containers...");
+            MYSQL8_CONTAINER.stop();
+            LOG.info("Container MySql8 is stopped.");
+        }
     }
 
     public void setup(boolean incrementalSnapshot) {

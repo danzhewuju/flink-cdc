@@ -50,14 +50,17 @@ public class UniqueDatabase {
     private static final String DROP_DATABASE_DDL = "DROP DATABASE IF EXISTS `$DBNAME$`;";
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
-    private final MySqlContainer container;
+    private final MySqlConnectionProvider container;
     private final String databaseName;
     private final String templateName;
     private final String username;
     private final String password;
 
     public UniqueDatabase(
-            MySqlContainer container, String databaseName, String username, String password) {
+            MySqlConnectionProvider container,
+            String databaseName,
+            String username,
+            String password) {
         this(
                 container,
                 databaseName,
@@ -67,7 +70,7 @@ public class UniqueDatabase {
     }
 
     private UniqueDatabase(
-            MySqlContainer container,
+            MySqlConnectionProvider container,
             String databaseName,
             final String identifier,
             String username,
@@ -75,8 +78,13 @@ public class UniqueDatabase {
         this.container = container;
         this.databaseName = databaseName + "_" + identifier;
         this.templateName = databaseName;
-        this.username = username;
-        this.password = password;
+        if (container instanceof RemoteMySqlServer) {
+            this.username = container.getUsername();
+            this.password = container.getPassword();
+        } else {
+            this.username = username;
+            this.password = password;
+        }
     }
 
     public String getHost() {

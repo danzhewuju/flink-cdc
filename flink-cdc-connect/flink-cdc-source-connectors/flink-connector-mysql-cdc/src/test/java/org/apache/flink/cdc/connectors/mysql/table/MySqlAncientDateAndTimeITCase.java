@@ -18,6 +18,7 @@
 package org.apache.flink.cdc.connectors.mysql.table;
 
 import org.apache.flink.cdc.connectors.mysql.source.MySqlSourceTestBase;
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlVersion;
 import org.apache.flink.cdc.connectors.mysql.testutils.UniqueDatabase;
@@ -59,8 +60,8 @@ public class MySqlAncientDateAndTimeITCase extends MySqlSourceTestBase {
     private static final String TEST_PASSWORD = "mysqlpw";
 
     // We need an extra "no_zero_in_date = false" config to insert malformed date and time records.
-    private static final MySqlContainer MYSQL_CONTAINER =
-            createMySqlContainer(MySqlVersion.V8_0, "docker/server-allow-ancient-date-time/my.cnf");
+    private static final MySqlConnectionProvider MYSQL_CONTAINER =
+            createMySqlProvider(MySqlVersion.V8_0, "docker/server-allow-ancient-date-time/my.cnf");
 
     private final UniqueDatabase ancientDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, "ancient_date_and_time", TEST_USER, TEST_PASSWORD);
@@ -73,16 +74,20 @@ public class MySqlAncientDateAndTimeITCase extends MySqlSourceTestBase {
 
     @BeforeAll
     public static void beforeClass() {
-        LOG.info("Starting MySql container...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
-        LOG.info("Container MySql is started.");
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Starting MySql container...");
+            Startables.deepStart(Stream.of((MySqlContainer) MYSQL_CONTAINER)).join();
+            LOG.info("Container MySql is started.");
+        }
     }
 
     @AfterAll
     public static void afterClass() {
-        LOG.info("Stopping MySql containers...");
-        MYSQL_CONTAINER.stop();
-        LOG.info("Container MySql is stopped.");
+        if (MYSQL_CONTAINER instanceof MySqlContainer) {
+            LOG.info("Stopping MySql containers...");
+            MYSQL_CONTAINER.stop();
+            LOG.info("Container MySql is stopped.");
+        }
     }
 
     void setup(boolean incrementalSnapshot) {
@@ -166,7 +171,7 @@ public class MySqlAncientDateAndTimeITCase extends MySqlSourceTestBase {
     }
 
     private void runGenericAncientDateAndTimeTest(
-            MySqlContainer container,
+            MySqlConnectionProvider container,
             UniqueDatabase database,
             boolean incrementalSnapshot,
             boolean enableTimeAdjuster,

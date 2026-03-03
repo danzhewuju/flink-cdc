@@ -20,7 +20,7 @@ package org.apache.flink.cdc.connectors.mysql;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.cdc.connectors.mysql.MySqlTestUtils.TestingListState;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
-import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.UniqueDatabase;
 import org.apache.flink.cdc.connectors.utils.TestSourceContext;
 import org.apache.flink.cdc.debezium.DebeziumSourceFunction;
@@ -1131,7 +1131,7 @@ public class LegacyMySqlSourceTest extends LegacyMySqlTestBase {
 
     /** Gets the latest offset of current MySQL server. */
     public static Tuple2<String, Integer> currentMySqlLatestOffset(
-            MySqlContainer container,
+            MySqlConnectionProvider container,
             UniqueDatabase database,
             String table,
             int expectedRecordCount,

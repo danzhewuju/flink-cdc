@@ -36,9 +36,11 @@ import org.apache.flink.cdc.connectors.mysql.source.utils.RecordUtils;
 import org.apache.flink.cdc.connectors.mysql.source.utils.TableDiscoveryUtils;
 import org.apache.flink.cdc.connectors.mysql.source.utils.hooks.SnapshotPhaseHooks;
 import org.apache.flink.cdc.connectors.mysql.table.StartupOptions;
+import org.apache.flink.cdc.connectors.mysql.testutils.MySqlConnectionProvider;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlContainer;
 import org.apache.flink.cdc.connectors.mysql.testutils.MySqlVersion;
 import org.apache.flink.cdc.connectors.mysql.testutils.RecordsFormatter;
+import org.apache.flink.cdc.connectors.mysql.testutils.RemoteMySqlServer;
 import org.apache.flink.cdc.connectors.mysql.testutils.UniqueDatabase;
 import org.apache.flink.core.testutils.CommonTestUtils;
 import org.apache.flink.table.api.DataTypes;
@@ -101,13 +103,13 @@ class BinlogSplitReaderTest extends MySqlSourceTestBase {
     private final UniqueDatabase customerDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, "customer", TEST_USER, TEST_PASSWORD);
 
-    private static final MySqlContainer MYSQL8_CONTAINER =
-            createMySqlContainer(MySqlVersion.V8_0, "docker/server-gtids/expire-seconds/my.cnf");
+    private static final MySqlConnectionProvider MYSQL8_CONTAINER =
+            createMySqlProvider(MySqlVersion.V8_0, "docker/server-gtids/expire-seconds/my.cnf");
     private final UniqueDatabase inventoryDatabase8 =
             new UniqueDatabase(MYSQL8_CONTAINER, "inventory", TEST_USER, TEST_PASSWORD);
 
-    private static final MySqlContainer MYSQL_CONTAINER_NOGTID =
-            createMySqlContainer(MySqlVersion.V5_7, "docker/server/my.cnf");
+    private static final MySqlConnectionProvider MYSQL_CONTAINER_NOGTID =
+            createMySqlProvider(MySqlVersion.V5_7, "docker/server/my.cnf");
     private final UniqueDatabase customerDatabaseNoGtid =
             new UniqueDatabase(MYSQL_CONTAINER_NOGTID, "customer", TEST_USER, TEST_PASSWORD);
 
@@ -116,16 +118,23 @@ class BinlogSplitReaderTest extends MySqlSourceTestBase {
 
     @BeforeAll
     public static void beforeClass() {
+        if (RemoteMySqlServer.isRemoteEnabled()) {
+            LOG.info("Using remote MySQL server, skipping container startup.");
+            return;
+        }
         LOG.info("Starting MySql8 containers...");
-        Startables.deepStart(Stream.of(MYSQL8_CONTAINER)).join();
+        Startables.deepStart(Stream.of((MySqlContainer) MYSQL8_CONTAINER)).join();
         LOG.info("Container MySql8 is started.");
         LOG.info("Starting MySqlNoGtid containers...");
-        Startables.deepStart(Stream.of(MYSQL_CONTAINER_NOGTID)).join();
+        Startables.deepStart(Stream.of((MySqlContainer) MYSQL_CONTAINER_NOGTID)).join();
         LOG.info("Container MySqlNoGtid is started.");
     }
 
     @AfterAll
     public static void afterClass() {
+        if (RemoteMySqlServer.isRemoteEnabled()) {
+            return;
+        }
         LOG.info("Stopping MySql8 containers...");
         MYSQL8_CONTAINER.stop();
         LOG.info("Container MySql8 is stopped.");
@@ -1597,7 +1606,7 @@ class BinlogSplitReaderTest extends MySqlSourceTestBase {
     }
 
     private MySqlSourceConfig getConfig(
-            MySqlContainer container,
+            MySqlConnectionProvider container,
             UniqueDatabase database,
             StartupOptions startupOptions,
             String[] captureTables) {
@@ -1617,12 +1626,12 @@ class BinlogSplitReaderTest extends MySqlSourceTestBase {
     }
 
     private MySqlSourceConfig getConfig(
-            MySqlContainer container, UniqueDatabase database, String[] captureTables) {
+            MySqlConnectionProvider container, UniqueDatabase database, String[] captureTables) {
         return getConfigFactory(container, database, captureTables, false).createConfig(0);
     }
 
     private MySqlSourceConfigFactory getConfigFactory(
-            MySqlContainer container,
+            MySqlConnectionProvider container,
             UniqueDatabase database,
             String[] captureTables,
             boolean skipSnapshotBackfill) {
